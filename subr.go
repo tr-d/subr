@@ -10,7 +10,6 @@ import (
 type Cmd struct {
 	Name  string        // the name of the sub-command
 	Usage string        // a usage string, formatted with 1 argument: os.Args[0]
-	Exec  func(Cmd) int // the function which executes the sub-command
 	Fset  *flag.FlagSet // like it says on the tin
 
 	Flags map[string]*string // string flags
@@ -33,18 +32,18 @@ func Parse(args []string, cmds ...*Cmd) (*Cmd, error) {
 		return nil, &NoArgs{}
 	}
 	for _, cmd := range cmds {
-		if cmd.Name == nil {
+		if cmd.Name == "" {
 			return nil, &ParseFailed{errors.New("missing command name")}
 		}
-		if args[0] == *cmd.Name {
-			if err := cmd.fset.Parse(args[1:]); err != nil {
+		if args[0] == cmd.Name {
+			if err := cmd.Fset.Parse(args[1:]); err != nil {
 				return nil, &ParseFailed{err}
 			}
-			cmd.Args = fset.Args()
+			cmd.Args = cmd.Fset.Args()
 			if len(cmd.Args) > 0 && cmd.Args[0] == cmd.Safeword {
 				return nil, &Safeword{}
 			}
-			return nil, cmd
+			return cmd, nil
 		}
 	}
 	return nil, &UnknownSub{args[0]}
