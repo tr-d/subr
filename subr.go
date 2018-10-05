@@ -4,6 +4,9 @@ package subr // import "github.com/tr-d/subr"
 import (
 	"errors"
 	"flag"
+	"fmt"
+	"io/ioutil"
+	"os"
 )
 
 // Cmd ...
@@ -26,6 +29,10 @@ type Servicer interface {
 	Connect() error
 }
 
+func (c Cmd) String() string {
+	return fmt.Sprintf(c.Usage, os.Args[0])
+}
+
 // Parse ...
 func Parse(args []string, cmds ...*Cmd) (*Cmd, error) {
 	if len(args) < 1 {
@@ -35,6 +42,8 @@ func Parse(args []string, cmds ...*Cmd) (*Cmd, error) {
 		if cmd.Name == "" {
 			return nil, &ParseFailed{errors.New("missing command name")}
 		}
+		cmd.Fset.Usage = func() { return }
+		cmd.Fset.SetOutput(ioutil.Discard)
 		if args[0] == cmd.Name {
 			if err := cmd.Fset.Parse(args[1:]); err != nil {
 				return nil, &ParseFailed{err}
