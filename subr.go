@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 )
 
 // Cmd ...
@@ -15,18 +16,37 @@ type Cmd struct {
 	Usage string        // a usage string, formatted with 1 argument: os.Args[0]
 	Fset  *flag.FlagSet // like it says on the tin
 
-	Flags map[string]*string // string flags
-	Flagb map[string]*bool   // bool flags
-	Flagi map[string]*int    // int flags
-
 	Safeword string   // set to "help", for example
 	Args     []string // remaining positional arguments
 	Svc      Servicer // custom context/services back-door
+
+	flags map[string]*string // string flags
+	flagb map[string]*bool   // bool flags
+	flagi map[string]*int    // int flags
 }
 
 // Servicer ...
 type Servicer interface {
 	Connect() error
+}
+
+// AddFlag ...
+func (c *Cmd) AddFlag(flag string, dflt interface{}, usage string) {
+	if c.Fset == nil {
+		fmt.Fprintln(os.Stderr, "missing FlagSet")
+		return
+	}
+	switch reflect.TypeOf(dflt).String() {
+	case "string":
+		c.flags[flag] = c.Fset.String(flag, dflt.(string), usage)
+	case "bool":
+		c.flagb[flag] = c.Fset.Bool(flag, dflt.(bool), usage)
+	case "int":
+		c.flagi[flag] = c.Fset.Int(flag, dflt.(int), usage)
+	default:
+		fmt.Fprintf(os.Stderr, "unsupported flag type %s\n", reflect.TypeOf(dflt))
+		return
+	}
 }
 
 func (c Cmd) String() string {

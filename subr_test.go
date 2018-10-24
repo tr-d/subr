@@ -10,24 +10,17 @@ import (
 // TestSubWithFlags ...
 func TestSubWithFlags(t *testing.T) {
 	helpString := "%s subcmd help document"
-	scFset := flag.NewFlagSet("subcmd", flag.ContinueOnError)
 	c := Cmd{
-		Name:  "subcmd",
-		Usage: helpString,
-		Fset:  scFset,
-		Flags: map[string]*string{
-			"string":  scFset.String("string", "", "test string flag"),
-			"dstring": scFset.String("dstring", "default", "test string flag, default"),
-		},
-		Flagb: map[string]*bool{
-			"bool":  scFset.Bool("bool", false, "test bool flag"),
-			"dbool": scFset.Bool("dbool", true, "test bool flag, default"),
-		},
-		Flagi: map[string]*int{
-			"int": scFset.Int("int", 3, "test int flag"),
-		},
+		Name:     "subcmd",
+		Usage:    helpString,
+		Fset:     flag.NewFlagSet("subcmd", flag.ContinueOnError),
 		Safeword: "halp",
 	}
+	c.AddFlag("string", "", "test string flag")
+	c.AddFlag("dstring", "default", "test string flag, default")
+	c.AddFlag("bool", false, "test bool flag")
+	c.AddFlag("dbool", true, "test bool flag, default")
+	c.AddFlag("int", 3, "test int flag")
 
 	eName := []string{"subcmd"}
 	c.Name = ""
