@@ -38,10 +38,19 @@ func (c *Cmd) AddFlag(flag string, dflt interface{}, usage string) {
 	}
 	switch reflect.TypeOf(dflt).String() {
 	case "string":
+		if len(c.flags) < 1 {
+			c.flags = map[string]*string{}
+		}
 		c.flags[flag] = c.Fset.String(flag, dflt.(string), usage)
 	case "bool":
+		if len(c.flagb) < 1 {
+			c.flagb = map[string]*bool{}
+		}
 		c.flagb[flag] = c.Fset.Bool(flag, dflt.(bool), usage)
 	case "int":
+		if len(c.flagi) < 1 {
+			c.flagi = map[string]*int{}
+		}
 		c.flagi[flag] = c.Fset.Int(flag, dflt.(int), usage)
 	default:
 		fmt.Fprintf(os.Stderr, "unsupported flag type %s\n", reflect.TypeOf(dflt))
