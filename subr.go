@@ -59,62 +59,30 @@ func (c *Cmd) AddFlag(flag string, dflt interface{}, usage string) {
 }
 
 func (c Cmd) String() string {
-	return fmt.Sprintf(c.Usage, os.Args[0])
+	return c.Usage
 }
 
 // Parse ...
-func Parse(args []string, cmds ...*Cmd) (*Cmd, error) {
+func Parse(args []string, cmds ...*Cmd) (*Cmd, int, error) {
 	if len(args) < 1 {
-		return nil, &NoArgs{}
+		return nil, 2, errors.New("no args")
 	}
 	for _, cmd := range cmds {
 		if cmd.Name == "" {
-			return nil, &ParseFailed{errors.New("missing command name")}
+			return nil, 3, errors.New("missing command.Name")
 		}
 		cmd.Fset.Usage = func() { return }
 		cmd.Fset.SetOutput(ioutil.Discard)
 		if args[0] == cmd.Name {
 			if err := cmd.Fset.Parse(args[1:]); err != nil {
-				return nil, &ParseFailed{err}
+				return nil, 4, err
 			}
 			cmd.Args = cmd.Fset.Args()
 			if len(cmd.Args) > 0 && cmd.Args[0] == cmd.Safeword {
-				return nil, &Safeword{}
+				return cmd, 1, errors.New("safeword invoked")
 			}
-			return cmd, nil
+			return cmd, 0, nil
 		}
 	}
-	return nil, &UnknownSub{args[0]}
-}
-
-// ERRORS
-
-// NoArgs is an error.
-type NoArgs struct{}
-
-func (e *NoArgs) Error() string {
-	return "no args to parse"
-}
-
-// ParseFailed is an error.
-type ParseFailed struct {
-	err error
-}
-
-func (e *ParseFailed) Error() string {
-	return e.err.Error()
-}
-
-// Safeword is an error.
-type Safeword struct{}
-
-func (e *Safeword) Error() string {
-	return "safeword invoked"
-}
-
-// UnknownSub is an error.
-type UnknownSub struct{ val string }
-
-func (e *UnknownSub) Error() string {
-	return e.val
+	return nil, 5, fmt.Errorf("unknown subcmd: %s", args[0])
 }
