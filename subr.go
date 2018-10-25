@@ -79,11 +79,11 @@ func (c *Cmd) Submit() int {
 }
 
 func (c Cmd) String() string {
-	fhelp := []string{"FLAGS"}
+	fhelp := []string{}
 	c.Fset.VisitAll(func(f *flag.Flag) {
 		fhelp = append(fhelp, fmt.Sprintf("    -%s  %s", f.Name, f.Usage))
 	})
-	return c.Usage + "\n" + strings.Join(fhelp, "\n")
+	return fmt.Sprintf(c.Usage, strings.Join(fhelp, "\n"))
 }
 
 // Parse ...
