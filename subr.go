@@ -2,23 +2,38 @@
 // handling.
 package subr // import "github.com/tr-d/subr"
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
+)
+
+// Status ...
+type Status int
+
+// Statuses
+const (
+	Safeword Status = iota + 1
+	NoArgs
+	ParseError
+	UnknownSub
 )
 
 // Cmd ...
 type Cmd struct {
-	Name  string        // the name of the sub-command
-	Usage string        // a usage string, formatted with 1 argument: os.Args[0]
-	Fset  *flag.FlagSet // like it says on the tin
+	Name  string         // the name of the sub-command
+	Usage string         // a usage string, formatted with 1 argument: os.Args[0]
+	Fset  *flag.FlagSet  // like it says on the tin
+	Fn    func(*Cmd) int // func which executes command
 
 	Safeword string   // set to "help", for example
 	Args     []string // remaining positional arguments
 	Svc      Servicer // custom context/services back-door
+
+	Status Status
+	Detail string
 
 	flags map[string]*string // string flags
 	flagb map[string]*bool   // bool flags
@@ -58,31 +73,39 @@ func (c *Cmd) AddFlag(flag string, dflt interface{}, usage string) {
 	}
 }
 
+// Submit ...
+func (c *Cmd) Submit() int {
+	return c.Fn(c)
+}
+
 func (c Cmd) String() string {
-	return c.Usage
+	fhelp := []string{"FLAGS"}
+	c.Fset.VisitAll(func(f *flag.Flag) {
+		fhelp = append(fhelp, fmt.Sprintf("    -%s  %s", f.Name, f.Usage))
+	})
+	return c.Usage + "\n" + strings.Join(fhelp, "\n")
 }
 
 // Parse ...
-func Parse(args []string, cmds ...*Cmd) (*Cmd, int, error) {
+func Parse(args []string, cmds ...*Cmd) *Cmd {
 	if len(args) < 1 {
-		return nil, 2, errors.New("no args")
+		return &Cmd{Status: NoArgs}
 	}
 	for _, cmd := range cmds {
-		if cmd.Name == "" {
-			return nil, 3, errors.New("missing command.Name")
-		}
 		cmd.Fset.Usage = func() { return }
 		cmd.Fset.SetOutput(ioutil.Discard)
 		if args[0] == cmd.Name {
 			if err := cmd.Fset.Parse(args[1:]); err != nil {
-				return nil, 4, err
+				cmd.Status = ParseError
+				cmd.Detail = err.Error()
+				return cmd
 			}
 			cmd.Args = cmd.Fset.Args()
 			if len(cmd.Args) > 0 && cmd.Args[0] == cmd.Safeword {
-				return cmd, 1, errors.New("safeword invoked")
+				cmd.Status = Safeword
 			}
-			return cmd, 0, nil
+			return cmd
 		}
 	}
-	return nil, 5, fmt.Errorf("unknown subcmd: %s", args[0])
+	return &Cmd{Status: UnknownSub, Name: args[0]}
 }
