@@ -51,18 +51,18 @@ func (c *Cmd) AddFlag(flag string, dflt interface{}, usage string) {
 		fmt.Fprintln(os.Stderr, "missing FlagSet")
 		return
 	}
-	switch reflect.TypeOf(dflt).String() {
-	case "string":
+	switch reflect.TypeOf(dflt).Kind() {
+	case reflect.String:
 		if len(c.flags) < 1 {
 			c.flags = map[string]*string{}
 		}
 		c.flags[flag] = c.Fset.String(flag, dflt.(string), usage)
-	case "bool":
+	case reflect.Bool:
 		if len(c.flagb) < 1 {
 			c.flagb = map[string]*bool{}
 		}
 		c.flagb[flag] = c.Fset.Bool(flag, dflt.(bool), usage)
-	case "int":
+	case reflect.Int:
 		if len(c.flagi) < 1 {
 			c.flagi = map[string]*int{}
 		}
@@ -76,6 +76,54 @@ func (c *Cmd) AddFlag(flag string, dflt interface{}, usage string) {
 // Submit ...
 func (c *Cmd) Submit() int {
 	return c.Fn(c)
+}
+
+// S ...
+func (c Cmd) S(n string) string {
+	if v, ok := c.flags[n]; ok {
+		return *v
+	}
+	return ""
+}
+
+// B ...
+func (c Cmd) B(n string) bool {
+	if v, ok := c.flagb[n]; ok {
+		return *v
+	}
+	return false
+}
+
+// I ...
+func (c Cmd) I(n string) int {
+	if v, ok := c.flagi[n]; ok {
+		return *v
+	}
+	return 0
+}
+
+// Pop ...
+func (c Cmd) Pop(in interface{}) {
+	v := reflect.ValueOf(in).Elem()
+	t := v.Type()
+	if t.Kind() != reflect.Struct {
+		return
+	}
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		flag := t.Field(i).Tag.Get("subr")
+		if flag == "" {
+			continue
+		}
+		switch f.Type().String() {
+		case "string":
+			f.SetString(c.S(flag))
+		case "bool":
+			f.SetBool(c.B(flag))
+		case "int":
+			f.SetInt(int64(c.I(flag)))
+		}
+	}
 }
 
 func (c Cmd) String() string {
