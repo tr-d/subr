@@ -16,6 +16,7 @@ type Status int
 // Statuses
 const (
 	Safeword Status = iota + 1
+	HelpInvoked
 	NoArgs
 	ParseError
 	UnknownSub
@@ -144,6 +145,10 @@ func Parse(args []string, cmds ...*Cmd) *Cmd {
 		cmd.Fset.SetOutput(ioutil.Discard)
 		if args[0] == cmd.Name {
 			if err := cmd.Fset.Parse(args[1:]); err != nil {
+				if err == flag.ErrHelp {
+					cmd.Status = HelpInvoked
+					return cmd
+				}
 				cmd.Status = ParseError
 				cmd.Detail = err.Error()
 				return cmd
