@@ -2,6 +2,7 @@
 // handling.
 package subr // import "github.com/tr-d/subr"
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -24,14 +25,15 @@ const (
 
 // Cmd ...
 type Cmd struct {
-	Name  string         // the name of the sub-command
-	Usage string         // a usage string, formatted with 1 argument: os.Args[0]
-	Fset  *flag.FlagSet  // like it says on the tin
-	Fn    func(*Cmd) int // func which executes command
+	Name     string // the name of the sub-command
+	Usage    string // a usage string, formatted with 1 argument: os.Args[0]
+	Safeword string // default from New(): help
 
-	Safeword string   // set to "help", for example
-	Args     []string // remaining positional arguments
-	Svc      Servicer // custom context/services back-door
+	Fset *flag.FlagSet  // like it says on the tin
+	Fn   func(*Cmd) int // func which executes command
+	Svc  Servicer       // custom context/services back-door
+
+	Args []string // remaining positional arguments
 
 	Status Status
 	Detail string
@@ -44,6 +46,17 @@ type Cmd struct {
 // Servicer ...
 type Servicer interface {
 	Connect() error
+}
+
+// New ...
+func New(name string, usage string, fn func(*Cmd) int) *Cmd {
+	return &Cmd{
+		Name:     name,
+		Usage:    usage,
+		Fn:       fn,
+		Fset:     flag.NewFlagSet(name, flag.ContinueOnError),
+		Safeword: "help",
+	}
 }
 
 // AddFlag ...
@@ -76,7 +89,73 @@ func (c *Cmd) AddFlag(flag string, dflt interface{}, usage string) {
 
 // Submit ...
 func (c *Cmd) Submit() int {
+	if c.Fn == nil {
+		return -1
+	}
 	return c.Fn(c)
+}
+
+// Bind ...
+func (c Cmd) Bind(in interface{}) {
+	v := reflect.ValueOf(in).Elem()
+	t := v.Type()
+	if t.Kind() != reflect.Struct {
+		return
+	}
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		flag := t.Field(i).Tag.Get("subr")
+		if flag == "" {
+			continue
+		}
+		switch f.Type().String() {
+		case "string":
+			f.SetString(c.S(flag))
+		case "bool":
+			f.SetBool(c.B(flag))
+		case "int":
+			f.SetInt(int64(c.I(flag)))
+		}
+	}
+}
+
+// HasStdin returns true if stdin is a char device.
+func (c Cmd) HasStdin() bool {
+	f, err := os.Stdin.Stat()
+	if err != nil {
+		return false // TODO this should maybe be a panic?
+	}
+	return f.Mode()&os.ModeCharDevice == 0
+}
+
+// HasPipe returns true if stdout is a pipe.
+func (c Cmd) HasPipe() bool {
+	f, err := os.Stdout.Stat()
+	if err != nil {
+		return false // TODO this should maybe be a panic?
+	}
+	return f.Mode()&os.ModeNamedPipe != 0
+}
+
+// ReadStdin will return a slice of bytes from stdin.
+func (c Cmd) ReadStdin() []byte {
+	b := []byte{}
+	if !c.HasStdin() {
+		return b
+	}
+	r := bufio.NewReader(os.Stdin)
+	b, _ = ioutil.ReadAll(r)
+	return b
+}
+
+// StdinArgs returns a stdin as a slice of strings split on newlines.
+func (c Cmd) StdinArgs() []string {
+	a := []string{}
+	if !c.HasStdin() {
+		return a
+	}
+	b := c.ReadStdin()
+	return strings.Split(strings.TrimSpace(string(b)), "\n")
 }
 
 // S ...
@@ -101,30 +180,6 @@ func (c Cmd) I(n string) int {
 		return *v
 	}
 	return 0
-}
-
-// Pop ...
-func (c Cmd) Pop(in interface{}) {
-	v := reflect.ValueOf(in).Elem()
-	t := v.Type()
-	if t.Kind() != reflect.Struct {
-		return
-	}
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		flag := t.Field(i).Tag.Get("subr")
-		if flag == "" {
-			continue
-		}
-		switch f.Type().String() {
-		case "string":
-			f.SetString(c.S(flag))
-		case "bool":
-			f.SetBool(c.B(flag))
-		case "int":
-			f.SetInt(int64(c.I(flag)))
-		}
-	}
 }
 
 func (c Cmd) String() string {
