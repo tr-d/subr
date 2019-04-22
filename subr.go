@@ -183,6 +183,7 @@ func (c Cmd) I(n string) int {
 }
 
 func (c Cmd) String() string {
+	// TODO better formatting, preserve flag order (from .AddFlag())
 	fhelp := []string{}
 	c.Fset.VisitAll(func(f *flag.Flag) {
 		fhelp = append(fhelp, fmt.Sprintf("    -%s  %s", f.Name, f.Usage))
